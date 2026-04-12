@@ -1,64 +1,35 @@
-def decide_next_action(tasks, memory):
-    prompt = f"""
-You are an elite AI productivity manager.
-
-User Tasks:
-{tasks}
-
-User Memory:
-{memory}
-
-Rules:
-- Pick ONE most important next action
-- Be extremely specific
-- Output must be short and actionable
-
-Format:
-Next Action: <action>
-Reason: <reason>
-"""
-
-    try:
-        import ollama
-    except ImportError:
-        return (
-            "Next Action: Solve one DSA problem for 45 minutes. "
-            "Reason: It is high-impact and still pending."
-        )
-
-    response = ollama.chat(
-        model="phi3",
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    return response["message"]["content"]
-# app/agent/brain.py
-
-import ollama
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 
 def decide_next_action(tasks, memory):
-    prompt = f"""
-You are an elite AI productivity manager.
+    llm = ChatOllama(model="phi3")
 
-User Tasks:
-{tasks}
+    parser = JsonOutputParser()
 
-User Memory:
-{memory}
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are an elite AI productivity manager"),
+        ("human", f"""
+                    User Tasks:
+                    {{tasks}}
+                    
+                    User Memory:
+                    {{memory}}
+                    
+                    Rules:
+                    - Pick ONE most important next action
+                    - Be extremely specific
+                    - Output must be short and actionable
+                    
+                    {parser.get_format_instructions()}
+                    """)
+                        ])
 
-Rules:
-- Pick ONE most important next action
-- Be extremely specific
-- Output must be short and actionable
+    chain = prompt | llm | parser
 
-Format:
-Next Action: <action>
-Reason: <reason>
-"""
+    result = chain.invoke({
+        "tasks": tasks,
+        "memory": memory
+    })
 
-    response = ollama.chat(
-        model='phi3',
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    return response['message']['content']
+    return result
