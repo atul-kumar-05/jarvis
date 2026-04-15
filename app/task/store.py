@@ -1,7 +1,7 @@
-from app.dbconfig.db import Session
-from app.task.models import Task
+from db.db import SessionLocal
+from app.task.models import task
 
 def get_tasks():
-    db = Session()
-    tasks = db.query(Task).filter(Task.status == 'PENDING').all()
+    db = SessionLocal()
+    tasks = db.query(task).filter(task.status == 'pending').all()
     return tasks

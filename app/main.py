@@ -1,23 +1,19 @@
-from fastapi import FastAPI
-
-from app.agent.brain import decide_next_action
-from app.memory.store import get_memory
-from app.task.store import get_tasks
-from dbconfig.db import Session
-from task.models import Task
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from app.db.db import get_db
+from app.dto.dto import add_task
+from app.service.task_service import save_task
+from app.agent.manager import decide_next_action
 
 app = FastAPI()
-db = Session()
 
-
+@app.get("/tasks")
 @app.get("/next-action")
-@async def next_action():
-    tasks = get_tasks()
-    memory = get_memory()
-    decision = decide_next_action(tasks, memory)
-    return {"decision": decision}
+async def next_action(db : Session = Depends(get_db)):
+    tasks = decide_next_action(db)
+    return {"tasks": tasks}
 
 @app.post("/tasks")
-@async def add_task(title: str):
-    task = Task(title=title)
-    db.add(task)
+async def add_task(task: add_task, db: Session = Depends(get_db)):
+    saved_task = save_task(task, db)
+    return {"task": saved_task}
