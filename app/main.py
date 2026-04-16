@@ -6,15 +6,7 @@ from app.service.task_service import save_task
 from app.agent.manager import decide_next_action
 from app.memory.service import retrieve_memory,store_memory
 
-
-
-
-
-store_memory("User struggled with backend API design and delayed execution")
-retrieve_memory('print(retrieve_memory("backend task")')
-
 app = FastAPI()
-
 
 @app.get("/tasks")
 @app.get("/next-action")

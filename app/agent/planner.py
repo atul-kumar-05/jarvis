@@ -1,12 +1,12 @@
-from app.memory.rag_service import retrieve_context
+from app.memory.rag_service import retrieve_context,build_context
 from app.llm import generate
 from app.memory.behavior import analyze_behavior
 
 
 def planner_node(state):
     task = state["task"]
-    context = retrieve_context()
     behavior = analyze_behavior(task,task.status)
+    context = build_context(task,behavior)
     prompt = f"""
 You are an elite planning agent.
 
@@ -37,4 +37,27 @@ Step 2:
         **state,
         "plan": plan
     }
+
+def generate_tasks_from_goal(goal):
+
+    prompt = f"""
+You are an elite planning agent.
+
+Goal:
+{goal}
+
+Break this into 5 actionable tasks.
+
+Rules:
+- Tasks must be executable
+- Keep them small
+- Focus on progress
+
+Output:
+1.
+2.
+3.
+"""
+
+    return generate(prompt)
 

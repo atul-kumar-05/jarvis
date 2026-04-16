@@ -1,5 +1,4 @@
-from sqlalchemy.ext.asyncio import result
-
+from app.memory.service import store_memory
 from app.llm import generate
 from app.memory.behavior import log_behavior
 
@@ -23,10 +22,15 @@ def reviewer_node(state):
     Adjustment:
     """
 
-    response = generate(prompt)
+    review = generate(prompt)
+
+    success = 'good' in review.lower()
+
+    store_memory(state['task'], result, review, success)
+
 
     log_behavior(state['task'],'completed')
     return {
         **state,
-        'review_result': response
+        'review_result': review
     }

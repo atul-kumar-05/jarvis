@@ -12,4 +12,8 @@ class task(Base):
     status = Column(String)
     priority = Column(String)
 
+class Goal:
+  def __int__(self, title:str):
+      self.title = title
+
 Base.metadata.create_all(engine)
