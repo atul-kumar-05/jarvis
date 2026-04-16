@@ -5,6 +5,8 @@ from app.dto.dto import add_task
 from app.service.task_service import save_task
 from app.agent.manager import decide_next_action
 from app.memory.service import retrieve_memory,store_memory
+from app.core.llama_config import *
+from app.core.logging import logger  # Suppress SQLAlchemy verbose logging
 
 app = FastAPI()
 

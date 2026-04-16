@@ -1,31 +1,88 @@
 from datetime import datetime
-
-from app.memory.vector_store import vector_store_index
+from app.memory.vector_store import get_index
 from llama_index.core import Document
-from datetime import datetime
 
-def store_memory(text, result, review, success : bool):
-    text = Document(text= f'''
-        Task: {text}
+def store_memory(task_obj, result, review, success : bool):
+    """
+    Store execution memory in vector store.
+
+    Args:
+        task_obj: Task object or string description
+        result: Execution result
+        review: Review comments
+        success: Whether execution was successful
+    """
+    # Convert task object to string if needed
+    if not isinstance(task_obj, str):
+        if hasattr(task_obj, 'title') and hasattr(task_obj, 'description'):
+            task_str = f"{task_obj.title} {task_obj.description}"
+        else:
+            task_str = str(task_obj)
+    else:
+        task_str = task_obj
+
+    # Create document with serializable metadata
+    doc = Document(
+        text=f'''
+        Task: {task_str}
         Review: {review}
-        result: {result}
+        Result: {result}
         Success: {success}
         ''',
-        metadata = {
-        'review': review,
-        'success': success,
-        'text': text,
-        'timestamp': datetime.datetime.now().isoformat(),
-        'type':'execution'
-    })
-    vector_store_index.insert(text)
+        metadata={
+            'review': str(review),
+            'success': str(success),
+            'result': str(result)[:200],  # Limit to 200 chars for metadata
+            'timestamp': datetime.now().isoformat(),
+            'type': 'execution'
+        }
+    )
 
-def retrieve_memory(query : str):
-    query_engine = vector_store_index.as_query_engine(similarity_top_k=3)
-    result = query_engine.query(query)
-    return str(result)
+    try:
+        index = get_index()
+        if index is not None:
+            index.insert(doc)
+            print(f"Memory stored: {task_str[:50]}...")
+    except Exception as e:
+        print(f"Warning: Failed to store memory - {str(e)}")
+
+def retrieve_memory(query):
+    """
+    Retrieve relevant memories using semantic search.
+
+    Args:
+        query: Can be a string or task object
+
+    Returns:
+        String representation of retrieved memories
+    """
+    # Convert task object to string query if needed
+    if not isinstance(query, str):
+        # Handle task object
+        if hasattr(query, 'title') and hasattr(query, 'description'):
+            query_str = f"{query.title} {query.description}"
+        else:
+            query_str = str(query)
+    else:
+        query_str = query
+
+    try:
+        index = get_index()
+
+        # If index is not available, return default context
+        if index is None:
+            return "No past experience available yet. This is the first task."
+
+        query_engine = index.as_query_engine(similarity_top_k=3)
+        result = query_engine.query(query_str)
+        return str(result)
+    except Exception as e:
+        # Return empty context if query fails
+        print(f"Warning: Memory retrieval failed - {str(e)}")
+        return f"Unable to retrieve past experience: {str(e)}"
 
 def rank_memory(memory : str):
+    """Rank memory based on success status."""
     if 'failed' in memory.lower():
         return 'failed'
     return memory
