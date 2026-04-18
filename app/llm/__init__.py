@@ -1,8 +1,12 @@
-from app.llm.llm_service import LlmService, LlmConfig, LlmClient
+"""
+LLM package — exposes a single ``generate()`` function.
 
-_config = LlmConfig()
-_client = LlmClient(_config)
-llm_service = LlmService(_client)
+Uses the singleton from ``provider.py`` (no duplicate setup).
+"""
 
-def generate(prompt:str) -> str:
+from app.llm.provider import llm_service
+
+
+def generate(prompt: str) -> str:
+    """Generate text from a prompt using the configured LLM."""
     return llm_service.generate(prompt)

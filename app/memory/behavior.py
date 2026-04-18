@@ -1,19 +1,40 @@
+"""
+Behavior tracking module — records task status transitions in memory.
+"""
+
 from datetime import datetime
+from typing import Any
 
-behavior_log = []
+from app.core.logging import logger
 
-def log_behavior(task,status):
-    behavior_log.append({"task":task,"status":status,'time': datetime.now().hour})
+# In-memory behavior log (consider persisting to DB for production)
+behavior_log: list[dict[str, Any]] = []
 
-def analyze_behavior(task,status):
+
+def log_behavior(task: Any, status: str) -> None:
+    """Append a behavior entry for the given task and status."""
+    behavior_log.append({
+        "task": str(task),
+        "status": status,
+        "time": datetime.now().hour,
+    })
+    logger.debug("Behavior logged: status=%s, hour=%d", status, datetime.now().hour)
+
+
+def analyze_behavior(task: Any, status: str) -> str:
+    """
+    Analyze accumulated behavior to detect patterns.
+
+    Returns a human-readable insight string used by the planner.
+    """
     if not behavior_log:
-        return 'No behavior log'
+        return "No behavior log — first session"
 
-    skipped = sum(1 for x in behavior_log if x['status'] == 'skipped')
-    completed = sum(1 for x in behavior_log if x['status'] == 'completed')
+    skipped = sum(1 for entry in behavior_log if entry["status"] == "skipped")
+    completed = sum(1 for entry in behavior_log if entry["status"] == "completed")
+    total = len(behavior_log)
 
-    if skipped > completed:
-        return 'user is procrastinating'
-    else:
-        return 'user is consistent'
+    if total > 0 and skipped > completed:
+        return f"User is procrastinating (skipped={skipped}, completed={completed})"
 
+    return f"User is consistent (completed={completed}, skipped={skipped})"

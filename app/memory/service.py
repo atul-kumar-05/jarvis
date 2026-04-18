@@ -1,70 +1,94 @@
+"""
+Memory service — store and retrieve execution memories via Qdrant.
+"""
+
 from datetime import datetime
-from app.memory.vector_store import get_index
+from typing import Optional
+
 from llama_index.core import Document
 
-def store_memory(task_obj, result, review, success : bool):
-    
-    if not isinstance(task_obj, str):
-        if hasattr(task_obj, 'title') and hasattr(task_obj, 'description'):
-            task_str = f"{task_obj.title} {task_obj.description}"
-        else:
-            task_str = str(task_obj)
-    else:
-        task_str = task_obj
+from app.core.config import memory_config
+from app.core.logging import logger
+from app.memory.vector_store import get_index
 
-    # Create document with serializable metadata
+
+def _task_to_str(task_obj: object) -> str:
+    """Safely convert a task object (ORM model, string, etc.) to a string."""
+    if isinstance(task_obj, str):
+        return task_obj
+    if hasattr(task_obj, "title") and hasattr(task_obj, "description"):
+        return f"{task_obj.title} — {task_obj.description}"
+    return str(task_obj)
+
+
+def store_memory(task_obj: object, result: str, review: str, success: bool) -> None:
+    """
+    Persist an execution memory into the vector store.
+
+    Args:
+        task_obj: The task (ORM model or string).
+        result:   The execution result text.
+        review:   The reviewer's feedback.
+        success:  Whether the execution was deemed successful.
+    """
+    task_str = _task_to_str(task_obj)
+
     doc = Document(
-        text=f'''
-        Task: {task_str}
-        Review: {review}
-        Result: {result}
-        Success: {success}
-        ''',
+        text=(
+            f"Task: {task_str}\n"
+            f"Result: {result}\n"
+            f"Review: {review}\n"
+            f"Success: {success}"
+        ),
         metadata={
-            'review': str(review),
-            'success': str(success),
-            'result': str(result)[:200],  # Limit to 200 chars for metadata
-            'timestamp': datetime.now().isoformat(),
-            'type': 'execution'
-        }
+            "review": str(review),
+            "success": str(success),
+            "result": str(result)[:200],
+            "timestamp": datetime.now().isoformat(),
+            "type": "execution",
+        },
     )
 
     try:
         index = get_index()
         if index is not None:
             index.insert(doc)
-            print(f"Memory stored: {task_str[:50]}...")
-    except Exception as e:
-        print(f"Warning: Failed to store memory - {str(e)}")
-
-def retrieve_memory(query):
-    # Convert task object to string query if needed
-    if not isinstance(query, str):
-        # Handle task object
-        if hasattr(query, 'title') and hasattr(query, 'description'):
-            query_str = f"{query.title} {query.description}"
+            logger.info("Memory stored: %s", task_str[:80])
         else:
-            query_str = str(query)
-    else:
-        query_str = query
+            logger.warning("Skipped memory storage — vector index unavailable")
+    except Exception as exc:
+        logger.warning("Failed to store memory: %s", exc)
+
+
+def retrieve_memory(query: object) -> str:
+    """
+    Retrieve relevant past memories using semantic search.
+
+    Args:
+        query: A search query (string or task object).
+
+    Returns:
+        Stringified retrieval result, or a fallback message.
+    """
+    query_str = _task_to_str(query)
 
     try:
         index = get_index()
-
-        # If index is not available, return default context
         if index is None:
             return "No past experience available yet. This is the first task."
 
-        query_engine = index.as_query_engine(similarity_top_k=3)
+        query_engine = index.as_query_engine(
+            similarity_top_k=memory_config.top_k,
+        )
         result = query_engine.query(query_str)
         return str(result)
-    except Exception as e:
-        # Return empty context if query fails
-        print(f"Warning: Memory retrieval failed - {str(e)}")
-        return f"Unable to retrieve past experience: {str(e)}"
+    except Exception as exc:
+        logger.warning("Memory retrieval failed: %s", exc)
+        return f"Unable to retrieve past experience: {exc}"
 
-def rank_memory(memory : str):
-    """Rank memory based on success status."""
-    if 'failed' in memory.lower():
-        return 'failed'
+
+def rank_memory(memory: str) -> str:
+    """Rank / tag memory based on success status keywords."""
+    if "failed" in memory.lower():
+        return f"[FAILED] {memory}"
     return memory

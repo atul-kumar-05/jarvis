@@ -1,25 +1,42 @@
+"""
+LLM service — adds retry logic with exponential backoff on top of LlmClient.
+"""
+
 import time
-from app.llm.llm_client import LlmClient, LlmConfig, logger
+
+from app.core.logging import logger
+from app.llm.llm_client import LlmClient
 from app.llm.llm_exception import LLMError
 
+
 class LlmService:
-    def __init__(self,llm : LlmClient):
+    """High-level LLM interface with automatic retries."""
+
+    def __init__(self, llm: LlmClient) -> None:
         self.client = llm
 
-    def generate(self, prompt:str) -> str:
-        last_exception = None
+    def generate(self, prompt: str) -> str:
+        """
+        Generate text from a prompt, retrying on transient failures.
+
+        Raises:
+            LLMError: If all retry attempts are exhausted.
+        """
+        last_exception: Exception | None = None
         max_retries = self.client.config.max_retries
 
-        for i in range(max_retries):
+        for attempt in range(1, max_retries + 1):
             try:
                 return self.client.invoke(prompt)
-            except Exception as e:
-                last_exception = e
-                logger.warning('llm entry',extra={
-                    'attempt': i+1,
-                    'exception': last_exception
-                })
-                time.sleep(2** i)
+            except Exception as exc:
+                last_exception = exc
+                logger.warning(
+                    "LLM retry attempt %d/%d failed: %s",
+                    attempt,
+                    max_retries,
+                    exc,
+                )
+                time.sleep(2 ** (attempt - 1))
 
         detail = str(last_exception) if last_exception else "unknown error"
         raise LLMError(

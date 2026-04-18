@@ -1,22 +1,57 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from app.db.db import get_db
-from app.dto.dto import add_task
-from app.service.task_service import save_task
-from app.agent.manager import decide_next_action
-from app.memory.service import retrieve_memory,store_memory
-from app.core.llama_config import *
-from app.core.logging import logger  # Suppress SQLAlchemy verbose logging
+"""
+Jarvis — FastAPI application entry point.
 
-app = FastAPI()
+Configures CORS, registers routers, and provides health/startup hooks.
+"""
 
-@app.get("/tasks")
-@app.get("/next-action")
-async def next_action(db : Session = Depends(get_db)):
-    tasks = decide_next_action(db)
-    return {"tasks": tasks}
+from contextlib import asynccontextmanager
 
-@app.post("/tasks")
-async def add_task(task: add_task, db: Session = Depends(get_db)):
-    saved_task = save_task(task, db)
-    return {"task": saved_task}
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.logging import logger
+from app.dto.dto import HealthResponse
+from app.routers.routers import action_router, router as task_router
+
+
+# ── Lifespan (startup / shutdown) ──────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Application startup and shutdown hooks."""
+    logger.info("🚀 Jarvis is starting up...")
+    yield
+    logger.info("👋 Jarvis is shutting down...")
+
+
+# ── Application ────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="Jarvis Agent Framework",
+    description="Intelligent multi-agent task execution system with LLM-powered planning, execution, and review.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# ── CORS ───────────────────────────────────────────────────────────
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Routers ────────────────────────────────────────────────────────
+
+app.include_router(task_router)
+app.include_router(action_router)
+
+
+# ── Health Check ───────────────────────────────────────────────────
+
+@app.get("/health", response_model=HealthResponse, tags=["System"])
+async def health_check() -> HealthResponse:
+    """Health check endpoint."""
+    return HealthResponse()

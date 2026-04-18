@@ -1,12 +1,29 @@
-from llama_index.core import Settings
-from llama_index.llms.ollama import Ollama
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+"""
+LLaMA Index global settings — configures the LLM and embedding model.
+Reads model names from environment via centralized config.
+"""
 
-Settings.llm = Ollama(
-    model="tinyllama",
-    request_timeout=60.0
-)
+from app.core.config import embedding_config, llm_config
+from app.core.logging import logger
 
-Settings.embed_model = HuggingFaceEmbedding(
-    model_name="BAAI/bge-small-en"
-)
+try:
+    from llama_index.core import Settings
+    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+    from llama_index.llms.ollama import Ollama
+
+    Settings.llm = Ollama(
+        model=llm_config.model.replace(":latest", ""),
+        request_timeout=llm_config.timeout,
+    )
+
+    Settings.embed_model = HuggingFaceEmbedding(
+        model_name=embedding_config.model_name,
+    )
+
+    logger.info(
+        "LLaMA Index configured | LLM=%s | Embedding=%s",
+        llm_config.model,
+        embedding_config.model_name,
+    )
+except Exception as exc:
+    logger.warning("LLaMA Index setup failed (non-fatal): %s", exc)

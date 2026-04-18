@@ -1,27 +1,38 @@
-import time
-from langchain_ollama import ChatOllama
-import logging
-from langchain_core.messages import HumanMessage
-from app.core.config import LlmConfig
+"""
+LLM client — thin wrapper around ChatOllama with latency logging.
+"""
 
-logger = logging.getLogger("llm_service")
-logging.basicConfig(level=logging.INFO)
+import time
+from typing import Optional
+
+from langchain_core.messages import HumanMessage
+from langchain_ollama import ChatOllama
+
+from app.core.config import LlmConfig
+from app.core.logging import logger
+
 
 class LlmClient:
-    def __init__(self, config: LlmConfig):
-        self.config = config
-        self.chat_ollama = ChatOllama(model = config.model,temperature = config.temp)
+    """Low-level LLM client. Use ``LlmService`` for retry-aware calls."""
 
-    def invoke(self,prompt : str):
+    def __init__(self, config: LlmConfig) -> None:
+        self.config = config
+        self.chat_ollama = ChatOllama(
+            model=config.model,
+            temperature=config.temp,
+        )
+
+    def invoke(self, prompt: str) -> str:
+        """Send a single prompt to the LLM and return the text response."""
         start_time = time.time()
 
         response = self.chat_ollama.invoke([HumanMessage(content=prompt)])
 
         duration = time.time() - start_time
-
-        logger.info('llm call',extra={
-            'model': self.config.model,
-            'latency':round(duration, 3)
-        })
+        logger.info(
+            "LLM call completed | model=%s | latency=%.3fs",
+            self.config.model,
+            duration,
+        )
 
         return response.content

@@ -1,32 +1,57 @@
-from llama_index.vector_stores.qdrant import QdrantVectorStore
-from llama_index.core import VectorStoreIndex, StorageContext
-from qdrant_client import QdrantClient
+"""
+Qdrant vector store initialization.
+Reads connection details from centralized config.
+"""
+
+from typing import Optional
+
+from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.vector_stores.qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 
-client = QdrantClient(host='127.0.0.1', port=6333)
-COLLECTION_NAME = 'agent_memory'
+from app.core.config import embedding_config, qdrant_config
+from app.core.logging import logger
 
-# Initialize embeddings
-embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
+# ── Qdrant client ──────────────────────────────────────────────────
+client = QdrantClient(host=qdrant_config.host, port=qdrant_config.port)
 
-# Initialize vector store
-vector_store = QdrantVectorStore(client=client, collection_name=COLLECTION_NAME)
-storage_context = StorageContext.from_defaults(vector_store=vector_store)
+# ── Embedding model ────────────────────────────────────────────────
+embed_model = HuggingFaceEmbedding(model_name=embedding_config.model_name)
 
-# Initialize index globally
-index = None
+# ── Vector store ───────────────────────────────────────────────────
+try:
+    vector_store = QdrantVectorStore(
+        client=client,
+        collection_name=qdrant_config.collection,
+    )
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
+except Exception as exc:
+    logger.warning("Qdrant not available at startup: %s", exc)
+    vector_store = None
+    storage_context = None
 
-def get_index():
-    """Get or create the vector store index."""
-    global index
-    if index is None:
+# ── Lazy index singleton ──────────────────────────────────────────
+_index: Optional[VectorStoreIndex] = None
+
+
+def get_index() -> Optional[VectorStoreIndex]:
+    """Get or create the vector store index. Returns ``None`` if Qdrant is unavailable."""
+    global _index
+
+    if vector_store is None:
+        logger.warning("Vector store not initialised — Qdrant may be offline")
+        return None
+
+    if _index is None:
         try:
-            index = VectorStoreIndex.from_vector_store(
+            _index = VectorStoreIndex.from_vector_store(
                 vector_store=vector_store,
-                embed_model=embed_model
+                embed_model=embed_model,
             )
-        except Exception as e:
-            print(f"Error initializing index: {e}")
-            # Return a safe fallback
+            logger.info("Vector store index created successfully")
+        except Exception as exc:
+            logger.error("Failed to initialise vector index: %s", exc)
             return None
-    return index
+
+    return _index
