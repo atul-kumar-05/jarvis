@@ -3,16 +3,7 @@ from app.memory.vector_store import get_index
 from llama_index.core import Document
 
 def store_memory(task_obj, result, review, success : bool):
-    """
-    Store execution memory in vector store.
-
-    Args:
-        task_obj: Task object or string description
-        result: Execution result
-        review: Review comments
-        success: Whether execution was successful
-    """
-    # Convert task object to string if needed
+    
     if not isinstance(task_obj, str):
         if hasattr(task_obj, 'title') and hasattr(task_obj, 'description'):
             task_str = f"{task_obj.title} {task_obj.description}"
@@ -47,15 +38,6 @@ def store_memory(task_obj, result, review, success : bool):
         print(f"Warning: Failed to store memory - {str(e)}")
 
 def retrieve_memory(query):
-    """
-    Retrieve relevant memories using semantic search.
-
-    Args:
-        query: Can be a string or task object
-
-    Returns:
-        String representation of retrieved memories
-    """
     # Convert task object to string query if needed
     if not isinstance(query, str):
         # Handle task object

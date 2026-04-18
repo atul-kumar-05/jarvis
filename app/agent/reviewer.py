@@ -31,6 +31,5 @@ def reviewer_node(state):
 
     log_behavior(state['task'],'completed')
     return {
-        **state,
         'review_result': review
     }

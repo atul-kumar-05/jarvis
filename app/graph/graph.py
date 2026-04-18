@@ -16,6 +16,6 @@ def build_graph():
     graph.set_entry_point("planner")
     graph.add_edge("planner","executor")
     graph.add_edge('executor','reviewer')
-    graph.set_finish_point('executor')
+    graph.set_finish_point('reviewer')
 
     return graph.compile()

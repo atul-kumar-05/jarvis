@@ -1,4 +1,4 @@
-from app.memory.rag_service import retrieve_context,build_context
+from app.memory.rag_service import build_context
 from app.llm import generate
 from app.memory.behavior import analyze_behavior
 
