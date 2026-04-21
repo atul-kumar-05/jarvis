@@ -1,8 +1,4 @@
-"""
-LLM package — exposes a single ``generate()`` function.
-
-Uses the singleton from ``provider.py`` (no duplicate setup).
-"""
+"""LLM package — exposes a single ``generate()`` function."""
 
 from app.llm.provider import llm_service
 
